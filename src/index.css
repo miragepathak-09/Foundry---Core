@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #050505;
+  --color-creme: #F5F5F0;
+  --color-dark-blue: #0A192F;
+  --color-electric-blue: #007AFF;
+  --color-sunset-orange: #FF5E3A;
+  --color-emerald-green: #2ECC71;
+  --color-glass: rgba(255, 255, 255, 0.05);
+  
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-white font-sans antialiased overflow-x-hidden;
+  }
+}
+
+@utility glass {
+  @apply backdrop-blur-2xl bg-white/5 border-[0.5px] border-white/20;
+}
+
+@utility bento-card {
+  @apply glass rounded-[2rem] p-6 transition-all duration-500 hover:bg-white/10 hover:border-white/30 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)];
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+@utility pulse-orange {
+  @apply shadow-[0_0_15px_rgba(255,94,58,0.6)] animate-pulse;
+}
+
+@utility pulse-blue {
+  @apply shadow-[0_0_15px_rgba(0,122,255,0.6)] animate-pulse;
+}
+
+@utility pulse-gold {
+  @apply shadow-[0_0_15px_rgba(255,215,0,0.6)] animate-pulse;
+}
+
+@utility pulse-green {
+  @apply shadow-[0_0_15px_rgba(46,204,113,0.6)] animate-pulse;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  50% { transform: scale(1.2); opacity: 0.3; }
+  100% { transform: scale(0.8); opacity: 0.5; }
+}
+
+.marker-pulse {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+.marker-pulse::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border-radius: 50%;
+  background: inherit;
+  animation: pulse-ring 2s infinite;
+  z-index: -1;
+}
+
+@utility light-glass {
+  @apply backdrop-blur-xl bg-creme/90 border border-creme/20 text-dark-blue;
+}
+
+@keyframes ping-slow {
+  0% { transform: scale(1); opacity: 1; }
+  75%, 100% { transform: scale(3); opacity: 0; }
+}
+
+.animate-ping-slow {
+  animation: ping-slow 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Leaflet Dark Matter Tiles Style */
+.leaflet-container {
+  background: #050505 !important;
+}
+
+.leaflet-tile {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #050505;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

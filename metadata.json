@@ -1,0 +1,5 @@
+{
+  "name": "Foundry",
+  "description": "An Urban Resilience & Resource Sharing Ecosystem for lost & found items and community lending.",
+  "requestFramePermissions": ["geolocation", "camera"]
+}
