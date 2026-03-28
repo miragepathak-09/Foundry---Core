@@ -1349,6 +1349,7 @@ export default function FoundryApp() {
   const [approvedHandshake, setApprovedHandshake] = useState<Item | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const profileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user && !isInitialized) {
@@ -1434,8 +1435,6 @@ export default function FoundryApp() {
       case 'trust-center': return <TrustCenterView />;
       case 'wallet': return <WalletView />;
       case 'settings': {
-        const profileInputRef = useRef<HTMLInputElement>(null);
-        
         const handleProfilePicChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
           const file = e.target.files?.[0];
           if (!file) return;
