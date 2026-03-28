@@ -82,6 +82,7 @@ export interface Transaction {
   hash: string;
   counterparty: string;
   payoutMethod?: 'eSewa' | 'Khalti' | 'IME Pay';
+  metadata?: any;
 }
 
 export interface WalletState {

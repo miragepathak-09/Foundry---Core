@@ -9,7 +9,7 @@ interface MarketplaceGridProps {
 }
 
 export const MarketplaceGrid: React.FC<MarketplaceGridProps> = ({ onItemClick }) => {
-  const { items, user, initiateRental, wallet } = useAppContext();
+  const { items, user, initiateRental, wallet, deleteItem } = useAppContext();
   const professionalListings: Item[] = [
     {
       id: 'p1',
@@ -125,7 +125,7 @@ export const MarketplaceGrid: React.FC<MarketplaceGridProps> = ({ onItemClick })
       tags: ['Tools', 'Electronics'],
       pricePerDay: 900,
       deposit: 6000,
-      authorName: 'Binod',
+      authorName: 'Bishal',
       authorRating: 4.8,
       neighborhood: 'Kupondole',
       image: 'https://picsum.photos/seed/generator/800/600'
@@ -183,7 +183,7 @@ export const MarketplaceGrid: React.FC<MarketplaceGridProps> = ({ onItemClick })
     }
   ];
 
-  const featuredItems = items.filter(item => item.type === 'lending' && item.status === 'active').concat(professionalListings);
+  const featuredItems = [...items.filter(item => item.type === 'lending' && item.status === 'active'), ...professionalListings];
 
   const handleRent = (e: React.MouseEvent, item: Item) => {
     e.stopPropagation();
@@ -268,17 +268,31 @@ export const MarketplaceGrid: React.FC<MarketplaceGridProps> = ({ onItemClick })
                 </div>
               </div>
 
-              <button 
-                onClick={(e) => handleRent(e, item)}
-                disabled={!user?.isVerified}
-                className={`w-full py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${
-                  user?.isVerified 
-                    ? 'bg-electric-blue text-white hover:shadow-[0_0_20px_rgba(0,122,255,0.4)]' 
-                    : 'bg-white/5 text-white/20 cursor-not-allowed'
-                }`}
-              >
-                {user?.isVerified ? 'Rent Now' : 'Verify to Rent'}
-              </button>
+              {(!user || item.userId !== user.id) && (
+                <button 
+                  onClick={(e) => handleRent(e, item)}
+                  disabled={!user?.isVerified}
+                  className={`w-full py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${
+                    user?.isVerified 
+                      ? 'bg-electric-blue text-white hover:shadow-[0_0_20px_rgba(0,122,255,0.4)]' 
+                      : 'bg-white/5 text-white/20 cursor-not-allowed'
+                  }`}
+                >
+                  {user?.isVerified ? 'Rent Now' : 'Verify to Rent'}
+                </button>
+              )}
+
+              {user && item.userId === user.id && (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteItem(item.id);
+                  }}
+                  className="w-full py-2 rounded-xl border border-sunset-orange/30 text-sunset-orange font-bold text-[10px] uppercase tracking-widest hover:bg-sunset-orange/10 transition-all mt-2"
+                >
+                  Delete My Broadcast
+                </button>
+              )}
             </div>
           </motion.div>
         ))}

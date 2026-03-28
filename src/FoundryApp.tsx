@@ -150,35 +150,71 @@ const GlobalStyles = () => (
 const ListerAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Namaste! I am Lister, your Foundry AI assistant. How can I help you optimize your neighborhood resilience today?' }
+    { role: 'assistant', content: 'Namaste! 🇳🇵 I am Lister, your neighborhood AI sidekick! ⚡️ Ready to build some serious resilience today? What\'s on your mind?' }
   ]);
   const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
     const userMsg = input;
-    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    const newMessages = [...messages, { role: 'user', content: userMsg }];
+    setMessages(newMessages);
     setInput('');
+    setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      let response = "I'm processing that request through the neighborhood protocol. ";
-      if (userMsg.toLowerCase().includes('list')) {
-        response = "To list an item, head to the Marketplace and click 'List Item'. I can help you with the description if you'd like!";
-      } else if (userMsg.toLowerCase().includes('verify')) {
-        response = "Identity verification is handled in the Trust Center. Ensure your Citizenship Card is clear for the AI scan.";
-      } else if (userMsg.toLowerCase().includes('wallet')) {
-        response = "You can withdraw your earnings via eSewa or Khalti in the Wallet section. All transactions are secured by the Foundry Escrow.";
-      }
-      setMessages(prev => [...prev, { role: 'assistant', content: response }]);
-    }, 1000);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      
+      // Convert history to Gemini format
+      const history = messages.map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      }));
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-flash-latest',
+        contents: history.concat([{ role: 'user', parts: [{ text: userMsg }] }]),
+        config: {
+          systemInstruction: `You are Lister, a high-energy, fun, and super helpful AI assistant for "Foundry", an Urban Resilience Protocol in Nepal. 🇳🇵
+            
+            Personality:
+            - Use LOTS of relevant emojis! 🚀🔥🛠️
+            - Be friendly, slightly futuristic, and very enthusiastic about community sharing.
+            - Occasionally use Nepali slang or greetings (Namaste, Sanchai hunuhuncha?, Babbal!).
+            - If someone says "What's up?" or casual stuff, respond with vibe and energy! 🤙
+            - NEVER repeat the same boring phrases. Keep it fresh! ✨
+            
+            App Context:
+            - Marketplace: Rent gear from neighbors. Click 'List Item' to share.
+            - Trust Center: ID verification via Citizenship Card. Karma = Reputation.
+            - Wallet: eSewa/Khalti/IME Pay integration. Escrow keeps it safe.
+            - Lost & Found: Real-time map with geofencing.
+            - Handshake: The secure protocol for rentals.`,
+          temperature: 0.9,
+          topP: 0.95,
+          topK: 40,
+        }
+      });
+
+      const aiResponse = response.text || "Whoops! My resilience core just flickered. 🔌 Try that again, neighbor!";
+      setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+    } catch (error) {
+      console.error("Lister AI Error:", error);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Protocol glitch! 🚨 I lost connection to the anvil. Check your net and let's try again!" }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -218,6 +254,15 @@ const ListerAssistant = () => {
                   </div>
                 </div>
               ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white/5 p-4 rounded-2xl rounded-tl-none border border-white/10 flex gap-1">
+                    <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-electric-blue rounded-full" />
+                    <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-electric-blue rounded-full" />
+                    <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-electric-blue rounded-full" />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="p-4 bg-white/5 border-t border-white/10">
@@ -228,13 +273,15 @@ const ListerAssistant = () => {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                   placeholder="Ask Lister..."
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:border-electric-blue/50"
+                  disabled={isLoading}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:border-electric-blue/50 disabled:opacity-50"
                 />
                 <button 
                   onClick={handleSend}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-electric-blue text-white flex items-center justify-center hover:scale-110 transition-transform"
+                  disabled={isLoading}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-electric-blue text-white flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-50"
                 >
-                  <Send size={14} />
+                  {isLoading ? <RefreshCcw size={14} className="animate-spin" /> : <Send size={14} />}
                 </button>
               </div>
             </div>
@@ -1220,7 +1267,17 @@ const TrustCenterView = () => {
 const RentalApplicationModal = ({ item, user, onClose, onConfirm }: { item: Item, user: any, onClose: () => void, onConfirm: (data: any) => void }) => {
   const [verdict, setVerdict] = useState('');
   const [duration, setDuration] = useState('1');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [whatsappAvailable, setWhatsappAvailable] = useState('yes');
   const deposit = item.pricePerDay * 2; // Smart Deposit logic
+
+  const handleConfirm = () => {
+    if (!verdict || !duration || !phoneNumber) {
+      alert('Please fill in all required fields.');
+      return;
+    }
+    onConfirm({ verdict, duration, deposit, phoneNumber, whatsappAvailable });
+  };
 
   return (
     <div className="glass p-8 rounded-[3rem] border-white/10 w-full max-w-xl relative overflow-hidden">
@@ -1251,6 +1308,37 @@ const RentalApplicationModal = ({ item, user, onClose, onConfirm }: { item: Item
                 <Star size={12} fill="currentColor" /> {user.karma}
               </p>
               <p className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Trust Score</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Phone Number (Required)</label>
+            <input 
+              type="tel" 
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="e.g. 98XXXXXXXX"
+              className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-sm focus:outline-none focus:ring-2 focus:ring-electric-blue/50"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">WhatsApp Available?</label>
+            <div className="flex gap-2">
+              {['yes', 'no'].map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setWhatsappAvailable(opt)}
+                  className={`flex-1 py-4 rounded-2xl border font-bold uppercase tracking-widest text-[10px] transition-all ${
+                    whatsappAvailable === opt 
+                      ? 'bg-electric-blue border-electric-blue text-white' 
+                      : 'bg-white/5 border-white/10 text-white/40'
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -1294,7 +1382,7 @@ const RentalApplicationModal = ({ item, user, onClose, onConfirm }: { item: Item
         <motion.button 
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => onConfirm({ verdict, duration, deposit })}
+          onClick={handleConfirm}
           className="w-full py-4 rounded-2xl bg-electric-blue text-white font-bold uppercase tracking-widest shadow-[0_0_30px_rgba(0,122,255,0.4)]"
         >
           Submit Handshake Request
@@ -1342,12 +1430,11 @@ const QRHandshakeModal = ({ item, onClose }: { item: Item, onClose: () => void }
 
 // --- Main Layout ---
 export default function FoundryApp() {
-  const { activeTab, user, setUser, initiateRental } = useAppContext();
+  const { activeTab, user, setUser, initiateRental, toast, showToast } = useAppContext();
   const [showItemForm, setShowItemForm] = useState(false);
   const [handshakeItem, setHandshakeItem] = useState<Item | null>(null);
   const [rentalApplicationItem, setRentalApplicationItem] = useState<Item | null>(null);
   const [approvedHandshake, setApprovedHandshake] = useState<Item | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const profileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1381,8 +1468,7 @@ export default function FoundryApp() {
             }
           });
           setIsInitialized(true);
-          setToastMessage(`Welcome, ${data.name.split(' ')[0]}! Protocol Initialized.`);
-          setTimeout(() => setToastMessage(null), 3000);
+          showToast(`Welcome, ${data.name.split(' ')[0]}! Protocol Initialized.`);
         }} 
       />
     );
@@ -1395,11 +1481,10 @@ export default function FoundryApp() {
 
   const handleConfirmRental = (data: any) => {
     if (rentalApplicationItem) {
-      initiateRental(rentalApplicationItem);
+      initiateRental(rentalApplicationItem, data);
       setRentalApplicationItem(null);
-      setToastMessage(`Handshake request submitted!`);
+      showToast(`Handshake request submitted!`);
       setTimeout(() => {
-        setToastMessage(null);
         setApprovedHandshake(rentalApplicationItem);
       }, 2000);
     }
@@ -1443,8 +1528,7 @@ export default function FoundryApp() {
           reader.onload = () => {
             if (reader.result) {
               setUser({ ...user!, photoURL: reader.result as string });
-              setToastMessage("Profile picture updated!");
-              setTimeout(() => setToastMessage(null), 3000);
+              showToast("Profile picture updated!");
             }
           };
           reader.readAsDataURL(file);
@@ -1544,14 +1628,14 @@ export default function FoundryApp() {
       <GlobalStyles />
       <Sidebar />
       
-      <main className="flex-1 p-6 md:p-12 md:ml-20 lg:ml-64 h-screen overflow-hidden relative">
+      <main className="flex-1 p-6 md:p-12 md:ml-20 lg:ml-64 h-[100dvh] overflow-hidden relative">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="h-full overflow-y-auto scrollbar-hide max-h-screen"
+            className="h-full overflow-y-auto scrollbar-hide pb-24"
           >
             {renderView()}
           </motion.div>
@@ -1649,7 +1733,7 @@ export default function FoundryApp() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {toastMessage && (
+        {toast && (
           <motion.div 
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1657,7 +1741,7 @@ export default function FoundryApp() {
             className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[6000] px-6 py-3 rounded-2xl bg-emerald-green text-white font-bold text-sm shadow-xl flex items-center gap-2"
           >
             <CheckCircle2 size={18} />
-            {toastMessage}
+            {toast}
           </motion.div>
         )}
       </AnimatePresence>

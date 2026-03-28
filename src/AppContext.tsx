@@ -4,25 +4,69 @@ import { calculateDistance, calculateKeywordSimilarity } from './lib/utils';
 
 // Mock Firebase for local-only operation
 const auth = { currentUser: null as any };
-const db = {} as any;
+const db = {
+  items: [] as Item[],
+  users: {} as Record<string, User>
+};
 const onAuthStateChanged = (auth: any, callback: any) => {
   callback(null);
   return () => {};
 };
-const doc = (...args: any[]) => ({});
-const getDoc = async (...args: any[]) => ({ exists: () => false, data: () => null });
-const setDoc = async (...args: any[]) => {};
+const doc = (db: any, collection: string, id: string) => ({ collection, id });
+const getDoc = async (docRef: any) => {
+  if (docRef.collection === 'users') {
+    const userData = db.users[docRef.id];
+    return { exists: () => !!userData, data: () => userData };
+  }
+  return { exists: () => false, data: () => null };
+};
+const setDoc = async (docRef: any, data: any) => {
+  if (docRef.collection === 'users') {
+    db.users[docRef.id] = data;
+  } else if (docRef.collection === 'items') {
+    const index = db.items.findIndex(i => i.id === docRef.id);
+    if (index > -1) db.items[index] = data;
+    else db.items.unshift(data); // Add to top
+    
+    // Trigger listeners
+    itemListeners.forEach(cb => cb({ docs: db.items.map(i => ({ id: i.id, data: () => i })) }));
+  }
+};
+
+const itemListeners: Set<(snapshot: any) => void> = new Set();
+
 const onSnapshot = (q: any, callback: any, errorCallback: any) => {
+  if (q.path === 'items') {
+    itemListeners.add(callback);
+    callback({ docs: db.items.map(i => ({ id: i.id, data: () => i })) });
+    return () => itemListeners.delete(callback);
+  }
   callback({ docs: [] });
   return () => {};
 };
-const collection = (...args: any[]) => ({});
-const query = (...args: any[]) => ({});
-const where = (...args: any[]) => ({});
-const orderBy = (...args: any[]) => ({});
-const addDoc = async (...args: any[]) => ({ id: 'mock-id' });
-const updateDoc = async (...args: any[]) => {};
-const deleteDoc = async (...args: any[]) => {};
+const collection = (db: any, path: string) => ({ path });
+const query = (col: any, ...args: any[]) => col;
+const orderBy = (...args: any[]) => ({ type: 'orderBy', args });
+const addDoc = async (col: any, data: any) => {
+  const id = Math.random().toString(36).substr(2, 9);
+  await setDoc({ collection: col.path, id }, { ...data, id });
+  return { id };
+};
+const updateDoc = async (docRef: any, data: any) => {
+  if (docRef.collection === 'items') {
+    const item = db.items.find(i => i.id === docRef.id);
+    if (item) {
+      Object.assign(item, data);
+      itemListeners.forEach(cb => cb({ docs: db.items.map(i => ({ id: i.id, data: () => i })) }));
+    }
+  }
+};
+const deleteDoc = async (docRef: any) => {
+  if (docRef.collection === 'items') {
+    db.items = db.items.filter(i => i.id !== docRef.id);
+    itemListeners.forEach(cb => cb({ docs: db.items.map(i => ({ id: i.id, data: () => i })) }));
+  }
+};
 
 enum OperationType {
   CREATE = 'create',
@@ -80,11 +124,14 @@ interface AppContextType {
   }) => Promise<void>;
   wallet: WalletState;
   topUp: (amount: number, provider: string) => void;
-  initiateRental: (item: Item) => void;
+  initiateRental: (item: Item, additionalData?: any) => void;
+  deleteItem: (id: string) => Promise<void>;
   completeHandshake: (transactionId: string) => void;
   requestPayout: (amount: number, method: 'eSewa' | 'Khalti' | 'IME Pay') => void;
   error: FirestoreErrorInfo | null;
   clearError: () => void;
+  toast: string | null;
+  showToast: (message: string, duration?: number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -104,6 +151,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     { id: 'n5', uid: 'FD-7722-V', name: 'Ramesh Adhikari', email: 'ramesh@example.com', neighborhood: 'Boudha', karma: 1200, level: 6, isVerified: true, idVerified: true, biometricsRegistered: true, photoURL: 'https://i.pravatar.cc/150?u=ramesh' }
   ]);
   const [error, setError] = useState<FirestoreErrorInfo | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = useCallback((message: string, duration: number = 3000) => {
+    setToast(message);
+    setTimeout(() => setToast(null), duration);
+  }, []);
 
   const handleFirestoreError = useCallback((error: unknown, operationType: OperationType, path: string | null) => {
     const errInfo: FirestoreErrorInfo = {
@@ -185,7 +238,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Real-time Items Listener
   useEffect(() => {
-    if (!isAuthReady || !auth.currentUser) return;
+    if (!isAuthReady) return;
 
     const path = 'items';
     const q = query(collection(db, path), orderBy('createdAt', 'desc'));
@@ -284,6 +337,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isNew: true,
       tags: mockAITagging(newItemData.title, newItemData.description),
       authorName: user.name,
+      authorRating: user.karma > 500 ? 5.0 : 4.5, // Dynamic rating
       neighborhood: user.neighborhood
     };
 
@@ -303,6 +357,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateKarma(50); // +50 for Returns
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `${path}/${id}`);
+    }
+  };
+
+  const deleteItem = async (id: string) => {
+    const path = 'items';
+    try {
+      // Optimistic update for instant UI feedback
+      setItems(prev => prev.filter(item => item.id !== id));
+      
+      await deleteDoc(doc(db, path, id));
+      updateKarma(-5);
+      showToast("Broadcast deleted successfully.");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `${path}/${id}`);
+      // Re-fetch items on error to ensure state consistency
+      const q = query(collection(db, path), orderBy('createdAt', 'desc'));
+      onSnapshot(q, (snapshot) => {
+        const newItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Item));
+        setItems(newItems);
+      }, () => {});
     }
   };
 
@@ -366,7 +440,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
-  const initiateRental = (item: Item) => {
+  const initiateRental = (item: Item, additionalData?: any) => {
     const totalAmount = (item.pricePerDay || 0) + (item.deposit || 0);
     if (wallet.available < totalAmount) return;
 
@@ -379,7 +453,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'escrow',
       timestamp: Date.now(),
       hash: `0x${Math.random().toString(16).substr(2, 16)}`,
-      counterparty: item.authorName || 'Verified Owner'
+      counterparty: item.authorName || 'Verified Owner',
+      metadata: additionalData
     };
 
     setWallet(prev => ({
@@ -437,8 +512,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider value={{ 
       user, isAuthReady, items, matches, setUser, addItem, resolveItem, updateItemStatus, location, setLocation, updateKarma, verifyUser, mockAITagging, neighbors, setNeighbors,
       activeTab, setActiveTab, verifyCitizenship,
-      wallet, topUp, initiateRental, completeHandshake, requestPayout,
-      error, clearError
+      wallet, topUp, initiateRental, deleteItem, completeHandshake, requestPayout,
+      error, clearError, toast, showToast
     }}>
       {children}
     </AppContext.Provider>
